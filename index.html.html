@@ -1,0 +1,722 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>HD #1934 Garden Center Planner</title>
+<script src="https://unpkg.com/@zxing/library@0.19.1/umd/index.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+:root{
+  --green:#3B6D11;--green-bg:#EAF3DE;
+  --amber:#854F0B;--amber-bg:#FAEEDA;
+  --teal:#085041;--teal-bg:#E1F5EE;
+  --blue:#0C447C;--blue-bg:#E6F1FB;
+  --text:#1a1a1a;--text2:#555;--text3:#888;
+  --bg:#fff;--bg2:#f5f5f3;--bg3:#ebebea;
+  --border:rgba(0,0,0,0.12);--border2:rgba(0,0,0,0.08);
+  --info:#185FA5;--info-bg:#E6F1FB;
+  --danger:#A32D2D;--danger-bg:#FCEBEB;
+  --radius:10px;--radius-lg:14px;
+}
+@media(prefers-color-scheme:dark){
+  :root{
+    --text:#f0efe9;--text2:#a8a69e;--text3:#6b6966;
+    --bg:#1c1c1a;--bg2:#242422;--bg3:#2e2e2b;
+    --border:rgba(255,255,255,0.1);--border2:rgba(255,255,255,0.06);
+    --info-bg:#0c2a4a;--info:#85B7EB;
+    --danger-bg:#2e1010;--danger:#F09595;
+    --green-bg:#0f1f05;--amber-bg:#1f1200;--teal-bg:#041a14;--blue-bg:#030f1e;
+  }
+}
+html,body{height:100%;background:var(--bg2);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:var(--text);font-size:16px}
+.app{max-width:480px;margin:0 auto;height:100vh;display:flex;flex-direction:column;background:var(--bg);position:relative;overflow:hidden}
+
+/* NAV */
+.nav{display:flex;background:var(--bg);border-top:0.5px solid var(--border);flex-shrink:0;z-index:5}
+.nav-btn{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:8px 4px 10px;cursor:pointer;color:var(--text3);font-size:10px;gap:3px;border:none;background:transparent}
+.nav-btn svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.nav-btn.active{color:var(--green)}
+
+/* SCREENS */
+.screen{display:none;flex-direction:column;flex:1;overflow:hidden}
+.screen.active{display:flex}
+.scrollable{overflow-y:auto;flex:1;-webkit-overflow-scrolling:touch}
+
+/* TOPBAR */
+.topbar{display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:0.5px solid var(--border);background:var(--bg);flex-shrink:0}
+.topbar-title{font-size:16px;font-weight:600;flex:1;color:var(--text)}
+.topbar-back{font-size:14px;color:var(--info);cursor:pointer;display:flex;align-items:center;gap:2px;padding:4px 0;white-space:nowrap}
+.topbar-sub{font-size:11px;color:var(--text3)}
+
+/* ZONE LIST */
+.summary-bar{padding:10px 16px;background:var(--bg2);border-bottom:0.5px solid var(--border2)}
+.summary-bar p{font-size:13px;color:var(--text2)}
+.zone-row{display:flex;align-items:center;padding:14px 16px;border-bottom:0.5px solid var(--border2);cursor:pointer;gap:12px;background:var(--bg)}
+.zone-row:active{background:var(--bg2)}
+.zone-dot{width:12px;height:12px;border-radius:50%;flex-shrink:0}
+.zone-info{flex:1}
+.zone-row-title{font-size:14px;font-weight:600}
+.zone-row-sub{font-size:12px;color:var(--text2);margin-top:2px}
+.zone-count{font-size:12px;color:var(--text2);background:var(--bg3);padding:3px 10px;border-radius:20px;white-space:nowrap}
+.chevron-svg{width:16px;height:16px;stroke:var(--text3);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0}
+
+/* SECTION LABELS */
+.sec-label{font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;padding:12px 16px 4px}
+
+/* CHIPS */
+.chip-row{display:flex;flex-wrap:wrap;gap:6px;padding:4px 16px 10px}
+.chip{font-size:13px;padding:7px 14px;border-radius:20px;border:0.5px solid var(--border);background:var(--bg);color:var(--text2);cursor:pointer;white-space:nowrap}
+.chip.active{background:var(--info-bg);color:var(--info);border-color:var(--info)}
+
+/* PLACED LIST */
+.placed-card{margin:0 16px 4px;border:0.5px solid var(--border);border-radius:var(--radius);overflow:hidden;background:var(--bg)}
+.placed-item{display:flex;align-items:center;padding:11px 12px;gap:10px;border-bottom:0.5px solid var(--border2)}
+.placed-item:last-child{border-bottom:none}
+.p-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
+.p-info{flex:1;min-width:0}
+.p-name{font-size:14px;font-weight:500;color:var(--text)}
+.p-loc{font-size:11px;color:var(--text3);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.p-rm{font-size:22px;color:var(--text3);cursor:pointer;padding:0 4px;line-height:1;flex-shrink:0}
+.p-rm:active{color:var(--danger)}
+.empty-msg{text-align:center;padding:24px 16px;color:var(--text3);font-size:13px}
+
+/* ADD PLANT BTN */
+.add-btn{margin:6px 16px 4px;padding:12px;border:1.5px dashed var(--border);border-radius:var(--radius);background:transparent;color:var(--info);font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;width:calc(100% - 32px)}
+.add-btn:active{background:var(--info-bg)}
+
+/* SCAN BTN */
+.scan-btn{margin:4px 16px 10px;padding:12px;border:0.5px solid var(--border);border-radius:var(--radius);background:var(--bg2);color:var(--text);font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;width:calc(100% - 32px)}
+.scan-btn:active{background:var(--bg3)}
+.scan-btn svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+
+/* CUSTOM NOTE */
+.custom-note{margin:0 16px 8px;padding:10px 12px;border:0.5px solid var(--border);border-radius:var(--radius);font-size:14px;background:var(--bg);color:var(--text);width:calc(100% - 32px);outline:none}
+.custom-note:focus{border-color:var(--info)}
+
+/* PLANT PICKER */
+.cat-scroll{display:flex;gap:6px;padding:6px 16px 8px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;flex-shrink:0}
+.cat-scroll::-webkit-scrollbar{display:none}
+.cat-chip{font-size:13px;padding:7px 14px;border-radius:20px;border:0.5px solid var(--border);background:var(--bg);color:var(--text2);cursor:pointer;white-space:nowrap;flex-shrink:0}
+.cat-chip.active{background:var(--green-bg);color:var(--green);border-color:var(--green)}
+.plant-list-card{margin:0 16px 8px;border:0.5px solid var(--border);border-radius:var(--radius);overflow:hidden;background:var(--bg)}
+.plant-item{display:flex;align-items:center;padding:12px 14px;gap:10px;border-bottom:0.5px solid var(--border2);cursor:pointer}
+.plant-item:last-child{border-bottom:none}
+.plant-item:active{background:var(--bg2)}
+.pl-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
+.pl-name{font-size:14px;color:var(--text);flex:1}
+.pl-add{width:20px;height:20px;stroke:var(--text3);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.custom-row{display:flex;gap:8px;margin:0 16px 12px}
+.custom-row input{flex:1;padding:10px 12px;border:0.5px solid var(--border);border-radius:var(--radius);font-size:14px;background:var(--bg);color:var(--text);outline:none}
+.custom-row input:focus{border-color:var(--info)}
+.custom-row button{padding:10px 16px;border-radius:var(--radius);border:0.5px solid var(--border);background:var(--bg2);color:var(--text);font-size:14px;cursor:pointer}
+
+/* CONFIRM SHEET */
+.sheet-wrap{position:absolute;inset:0;background:rgba(0,0,0,0.4);display:none;align-items:flex-end;z-index:20}
+.sheet-wrap.show{display:flex}
+.sheet{background:var(--bg);border-radius:20px 20px 0 0;padding:20px 16px 32px;width:100%}
+.sheet h3{font-size:16px;font-weight:600;margin-bottom:4px;color:var(--text)}
+.sheet p{font-size:13px;color:var(--text2);margin-bottom:16px;line-height:1.5}
+.sheet-btns{display:flex;gap:10px}
+.sheet-btns button{flex:1;padding:12px;border-radius:var(--radius);font-size:15px;cursor:pointer;font-weight:500}
+.btn-cancel{border:0.5px solid var(--border);background:var(--bg2);color:var(--text)}
+.btn-confirm{border:none;background:var(--green);color:#fff}
+.btn-confirm:active{opacity:.85}
+
+/* SCANNER SCREEN */
+.scanner-wrap{position:absolute;inset:0;background:#000;z-index:30;display:none;flex-direction:column}
+.scanner-wrap.show{display:flex}
+#scanner-video{width:100%;flex:1;object-fit:cover}
+.scanner-overlay{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none}
+.scan-frame{width:260px;height:160px;border:2px solid rgba(255,255,255,0.8);border-radius:12px;box-shadow:0 0 0 2000px rgba(0,0,0,0.5)}
+.scan-hint{color:#fff;font-size:13px;margin-top:16px;text-align:center;padding:0 32px;opacity:.85}
+.scanner-bar{background:rgba(0,0,0,0.7);padding:12px 16px;display:flex;align-items:center;gap:12px;flex-shrink:0}
+.scanner-close{color:#fff;font-size:15px;cursor:pointer;padding:4px 8px;pointer-events:all}
+.scanner-status{flex:1;font-size:13px;color:#fff;opacity:.8}
+.scan-result-sheet{background:var(--bg);border-radius:20px 20px 0 0;padding:20px 16px 32px;position:absolute;bottom:0;left:0;right:0;display:none;z-index:10}
+.scan-result-sheet.show{display:block}
+.scan-result-sheet h3{font-size:16px;font-weight:600;margin-bottom:6px;color:var(--text)}
+.scan-result-sheet input{width:100%;padding:10px 12px;border:0.5px solid var(--border);border-radius:var(--radius);font-size:14px;background:var(--bg2);color:var(--text);margin-bottom:12px;outline:none}
+.scan-result-sheet input:focus{border-color:var(--info)}
+.scan-result-btns{display:flex;gap:8px}
+.scan-result-btns button{flex:1;padding:11px;border-radius:var(--radius);font-size:14px;cursor:pointer;font-weight:500}
+
+/* MAP SCREEN */
+.map-container{padding:16px;display:flex;flex-direction:column;gap:12px}
+.map-card{background:var(--bg);border:0.5px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+.map-card svg{width:100%;display:block}
+.map-legend{display:flex;flex-direction:column;gap:6px;padding:12px 14px;border-top:0.5px solid var(--border2)}
+.legend-item{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text2)}
+.legend-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.zone-stats{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.stat-card{background:var(--bg);border:0.5px solid var(--border);border-radius:var(--radius);padding:12px 14px}
+.stat-label{font-size:11px;color:var(--text3);margin-bottom:4px;font-weight:500;text-transform:uppercase;letter-spacing:.3px}
+.stat-val{font-size:22px;font-weight:600;color:var(--text)}
+.stat-sub{font-size:11px;color:var(--text3);margin-top:2px}
+
+/* SAFE AREA */
+.safe-bottom{height:env(safe-area-inset-bottom,16px);flex-shrink:0}
+</style>
+</head>
+<body>
+<div class="app" id="app">
+
+  <!-- SCREEN: Zones -->
+  <div class="screen active" id="s-zones">
+    <div class="topbar">
+      <svg viewBox="0 0 24 24" style="width:22px;height:22px;stroke:var(--green);fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0"><path d="M12 2a9 9 0 0 1 9 9c0 5-9 13-9 13S3 16 3 11a9 9 0 0 1 9-9z"/><circle cx="12" cy="11" r="3"/></svg>
+      <span class="topbar-title">Garden center planner</span>
+      <span class="topbar-sub">#1934 Elgin</span>
+    </div>
+    <div class="summary-bar"><p id="totalSummary">No plants placed yet</p></div>
+    <div class="scrollable">
+      <div id="zoneList"></div>
+      <div class="safe-bottom"></div>
+    </div>
+  </div>
+
+  <!-- SCREEN: Zone Detail -->
+  <div class="screen" id="s-detail">
+    <div class="topbar">
+      <span class="topbar-back" onclick="goTo('s-zones')">&#8249; Zones</span>
+      <span class="topbar-title" id="d-title"></span>
+    </div>
+    <div class="scrollable">
+      <div id="d-header" style="padding:12px 16px;border-bottom:0.5px solid var(--border2)"></div>
+      <div class="sec-label">Position in zone</div>
+      <div class="chip-row" id="d-pos"></div>
+      <div class="sec-label">Row / level</div>
+      <div class="chip-row" id="d-row"></div>
+      <div class="sec-label">Custom note</div>
+      <input class="custom-note" id="d-note" placeholder="e.g. near fence, vendor drop area..."/>
+      <div class="sec-label">Plants in this zone</div>
+      <div id="d-plants"></div>
+      <button class="add-btn" onclick="goPickPlant()">
+        <svg viewBox="0 0 24 24" style="width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Add a plant to this zone
+      </button>
+      <button class="scan-btn" onclick="openScanner()">
+        <svg viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="14" rx="2"/><path d="M8 3h8M3 11h18M3 15h18"/></svg>
+        Scan plant label / barcode
+      </button>
+      <div class="safe-bottom"></div>
+    </div>
+  </div>
+
+  <!-- SCREEN: Plant Picker -->
+  <div class="screen" id="s-picker">
+    <div class="topbar">
+      <span class="topbar-back" onclick="goTo('s-detail')">&#8249; Back</span>
+      <span class="topbar-title">Pick a plant</span>
+    </div>
+    <div class="cat-scroll" id="catScroll"></div>
+    <div class="scrollable">
+      <div class="plant-list-card" id="plantGrid"></div>
+      <div class="sec-label">Add custom plant</div>
+      <div class="custom-row">
+        <input id="customInput" placeholder="Type plant name..."/>
+        <button onclick="addCustom()">Add</button>
+      </div>
+      <div class="safe-bottom"></div>
+    </div>
+  </div>
+
+  <!-- SCREEN: Map -->
+  <div class="screen" id="s-map">
+    <div class="topbar">
+      <span class="topbar-title">Zone map</span>
+      <span class="topbar-sub">#1934 Elgin, IL</span>
+    </div>
+    <div class="scrollable">
+      <div class="map-container">
+        <div class="map-card">
+          <svg viewBox="0 0 500 480" xmlns="http://www.w3.org/2000/svg" style="background:#eaeef0;width:100%;display:block">
+            <defs>
+              <marker id="arr" viewBox="0 0 10 10" refX="5" refY="9" markerWidth="6" markerHeight="6" orient="auto">
+                <path d="M1 1 L5 9 L9 1" fill="none" stroke="#f96c00" stroke-width="1.5" stroke-linejoin="round"/>
+              </marker>
+            </defs>
+            <!-- Base ground -->
+            <rect x="0" y="0" width="500" height="480" fill="#eaeef0"/>
+            <!-- Diagonal road upper right -->
+            <polygon points="320,0 500,0 500,160 390,0" fill="#d0d8e2"/>
+            <line x1="330" y1="0" x2="500" y2="165" stroke="#c0c8d4" stroke-width="1" stroke-dasharray="8 5"/>
+            <line x1="355" y1="0" x2="500" y2="140" stroke="#c0c8d4" stroke-width="1" stroke-dasharray="8 5"/>
+            <!-- Parking lot (left/center) -->
+            <rect x="0" y="0" width="318" height="258" fill="#dce2e8"/>
+            <rect x="8"  y="12" width="300" height="9" rx="2" fill="#c4cdd6" opacity=".7"/>
+            <rect x="8"  y="29" width="300" height="9" rx="2" fill="#c4cdd6" opacity=".7"/>
+            <rect x="8"  y="46" width="300" height="9" rx="2" fill="#c4cdd6" opacity=".7"/>
+            <rect x="8"  y="63" width="300" height="9" rx="2" fill="#c4cdd6" opacity=".7"/>
+            <rect x="8"  y="80" width="300" height="9" rx="2" fill="#c4cdd6" opacity=".7"/>
+            <rect x="8"  y="97" width="300" height="9" rx="2" fill="#c4cdd6" opacity=".7"/>
+            <rect x="8" y="114" width="220" height="9" rx="2" fill="#c4cdd6" opacity=".7"/>
+            <rect x="8" y="131" width="220" height="9" rx="2" fill="#c4cdd6" opacity=".7"/>
+            <rect x="8" y="148" width="220" height="9" rx="2" fill="#c4cdd6" opacity=".7"/>
+            <!-- Right edge road (Garden Center access) -->
+            <rect x="462" y="0" width="38" height="480" fill="#d0d8e2"/>
+            <!-- Penske area suggestion -->
+            <rect x="8" y="168" width="148" height="82" rx="3" fill="#d4dae0" stroke="#c0c8d2" stroke-width="0.5"/>
+            <text x="82" y="205" text-anchor="middle" font-family="-apple-system,sans-serif" font-size="9" fill="#a0a8b0">Penske Truck Rental</text>
+
+            <!-- ═══ CORRAL — upper right, large separate lot ═══ -->
+            <rect x="320" y="8" width="140" height="162" rx="4" fill="#c4e09e" fill-opacity=".65" stroke="#3B6D11" stroke-width="2.5"/>
+            <text x="390" y="72" text-anchor="middle" font-family="-apple-system,sans-serif" font-size="15" font-weight="700" fill="#27500A">Corral</text>
+            <text x="390" y="92"  text-anchor="middle" font-family="-apple-system,sans-serif" font-size="10" fill="#3B6D11">Trees · Large shrubs</text>
+            <text x="390" y="108" text-anchor="middle" font-family="-apple-system,sans-serif" font-size="10" fill="#3B6D11">Roses · Aloe vera</text>
+            <text x="390" y="124" text-anchor="middle" font-family="-apple-system,sans-serif" font-size="10" fill="#3B6D11">Veg overflow</text>
+            <text x="390" y="140" text-anchor="middle" font-family="-apple-system,sans-serif" font-size="10" fill="#3B6D11">Bagged soil / mulch</text>
+
+            <!-- ═══ MAIN STORE — large tan building lower portion ═══ -->
+            <rect x="0" y="258" width="390" height="222" fill="#e8e0cc" stroke="#c0b89a" stroke-width="1"/>
+            <!-- Interior grid lines -->
+            <line x1="78"  y1="258" x2="78"  y2="480" stroke="#ddd4b8" stroke-width="0.5"/>
+            <line x1="156" y1="258" x2="156" y2="480" stroke="#ddd4b8" stroke-width="0.5"/>
+            <line x1="234" y1="258" x2="234" y2="480" stroke="#ddd4b8" stroke-width="0.5"/>
+            <line x1="312" y1="258" x2="312" y2="480" stroke="#ddd4b8" stroke-width="0.5"/>
+            <line x1="0"   y1="348" x2="390" y2="348" stroke="#ddd4b8" stroke-width="0.5"/>
+            <line x1="0"   y1="420" x2="390" y2="420" stroke="#ddd4b8" stroke-width="0.5"/>
+            <!-- Store labels -->
+            <text x="39"  y="300" text-anchor="middle" font-family="-apple-system,sans-serif" font-size="9" fill="#aaa">Pro Desk</text>
+            <text x="39"  y="385" text-anchor="middle" font-family="-apple-system,sans-serif" font-size="9" fill="#aaa">Lumber &amp;</text>
+            <text x="39"  y="397" text-anchor="middle" font-family="-apple-system,sans-serif" font-size="9" fill="#aaa">Bldg Matl</text>
+            <text x="195" y="284" text-anchor="middle" font-family="-apple-system,sans-serif" font-size="9" fill="#aaa">Service Desk</text>
+            <text x="273" y="460" text-anchor="middle" font-family="-apple-system,sans-serif" font-size="9" fill="#bbb">Kitchen Showroom</text>
+            <text x="117" y="460" text-anchor="middle" font-family="-apple-system,sans-serif" font-size="9" fill="#bbb">Lighting / Fans</text>
+            <text x="155" y="390" text-anchor="middle" font-family="-apple-system,sans-serif" font-size="13" font-weight="600" fill="#c0b898">The Home Depot</text>
+
+            <!-- Store entrance vestibule -->
+            <rect x="272" y="218" width="52" height="42" rx="3" fill="#e0d8be" stroke="#bbb" stroke-width="0.8"/>
+            <text x="298" y="243" text-anchor="middle" font-family="-apple-system,sans-serif" font-size="8" fill="#999">Entrance</text>
+
+            <!-- Front entrance arrow -->
+            <line x1="298" y1="196" x2="298" y2="216" stroke="#f96c00" stroke-width="2.5" marker-end="url(#arr)"/>
+            <text x="298" y="192" text-anchor="middle" font-family="-apple-system,sans-serif" font-size="9" fill="#f96c00" font-weight="700">Front Entrance Apron</text>
+
+            <!-- ═══ FRONT APRON — wide horizontal strip, right side, below corral ═══ -->
+            <rect x="320" y="172" width="140" height="44" rx="3" fill="#f5d070" fill-opacity=".8" stroke="#854F0B" stroke-width="2.5"/>
+            <text x="390" y="199" text-anchor="middle" font-family="-apple-system,sans-serif" font-size="14" font-weight="700" fill="#633806">Front Apron</text>
+
+            <!-- ═══ NURSERY — below Front Apron, right side ═══ -->
+            <rect x="326" y="218" width="134" height="138" rx="3" fill="#8ed8bc" fill-opacity=".7" stroke="#085041" stroke-width="2.5"/>
+            <text x="393" y="274" text-anchor="middle" font-family="-apple-system,sans-serif" font-size="14" font-weight="700" fill="#04342C">Nursery</text>
+            <text x="393" y="292" text-anchor="middle" font-family="-apple-system,sans-serif" font-size="10" fill="#085041">Annuals · Perennials</text>
+            <text x="393" y="307" text-anchor="middle" font-family="-apple-system,sans-serif" font-size="10" fill="#085041">Veg · Herbs · Grasses</text>
+            <text x="393" y="322" text-anchor="middle" font-family="-apple-system,sans-serif" font-size="10" fill="#085041">Shrubs · Hedges</text>
+            <!-- Garden Center vertical label -->
+            <text x="454" y="290" text-anchor="middle" font-family="-apple-system,sans-serif" font-size="9" fill="#085041" font-weight="600" transform="rotate(90,454,290)">Garden Center</text>
+
+            <!-- ═══ INSIDE NURSERY — small rounded rect inside store, near Service Desk ═══ -->
+            <rect x="152" y="264" width="96" height="44" rx="10" fill="#a0c4ee" fill-opacity=".9" stroke="#0C447C" stroke-width="2.5"/>
+            <text x="200" y="282" text-anchor="middle" font-family="-apple-system,sans-serif" font-size="12" font-weight="700" fill="#042C53">Inside</text>
+            <text x="200" y="298" text-anchor="middle" font-family="-apple-system,sans-serif" font-size="12" font-weight="700" fill="#042C53">Nursery</text>
+            <!-- Arrow pointing up with label below -->
+            <line x1="200" y1="310" x2="200" y2="328" stroke="#0C447C" stroke-width="1.5" stroke-dasharray="3 2"/>
+            <text x="200" y="342" text-anchor="middle" font-family="-apple-system,sans-serif" font-size="9" fill="#0C447C">Inside Nursery</text>
+
+            <!-- Compass -->
+            <circle cx="36" cy="450" r="22" fill="white" fill-opacity=".8" stroke="#bbb" stroke-width="0.5"/>
+            <text x="36" y="435" text-anchor="middle" font-family="-apple-system,sans-serif" font-size="11" font-weight="700" fill="#333">N</text>
+            <text x="36" y="476" text-anchor="middle" font-family="-apple-system,sans-serif" font-size="11" fill="#888">S</text>
+            <text x="16" y="455" text-anchor="middle" font-family="-apple-system,sans-serif" font-size="11" fill="#888">W</text>
+            <text x="57" y="455" text-anchor="middle" font-family="-apple-system,sans-serif" font-size="11" fill="#888">E</text>
+            <line x1="36" y1="438" x2="36" y2="449" stroke="#333" stroke-width="2"/>
+          </svg>
+          <div class="map-legend">
+            <div class="legend-item"><span class="legend-dot" style="background:#3B6D11"></span>Corral — trees, shrubs, roses, aloe, overflow veg</div>
+            <div class="legend-item"><span class="legend-dot" style="background:#854F0B"></span>Front apron — annuals, hanging baskets, seasonal</div>
+            <div class="legend-item"><span class="legend-dot" style="background:#085041"></span>Nursery (outdoor) — annuals, perennials, veg, grasses</div>
+            <div class="legend-item"><span class="legend-dot" style="background:#0C447C"></span>Inside nursery — houseplants, tropicals, herbs, decor</div>
+          </div>
+        </div>
+        <div class="zone-stats" id="mapStats"></div>
+        <div class="safe-bottom"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- NAV BAR -->
+  <div class="nav">
+    <button class="nav-btn active" id="nav-zones" onclick="switchTab('zones')">
+      <svg viewBox="0 0 24 24"><rect x="3" y="3" width="8" height="8" rx="1"/><rect x="13" y="3" width="8" height="8" rx="1"/><rect x="3" y="13" width="8" height="8" rx="1"/><rect x="13" y="13" width="8" height="8" rx="1"/></svg>
+      Zones
+    </button>
+    <button class="nav-btn" id="nav-map" onclick="switchTab('map')">
+      <svg viewBox="0 0 24 24"><polygon points="3,6 9,3 15,6 21,3 21,18 15,21 9,18 3,21"/><line x1="9" y1="3" x2="9" y2="18"/><line x1="15" y1="6" x2="15" y2="21"/></svg>
+      Map
+    </button>
+  </div>
+
+  <!-- CONFIRM SHEET -->
+  <div class="sheet-wrap" id="confirmSheet">
+    <div class="sheet">
+      <h3 id="c-title">Add plant?</h3>
+      <p id="c-body"></p>
+      <div class="sheet-btns">
+        <button class="btn-cancel" onclick="closeSheet('confirmSheet')">Cancel</button>
+        <button class="btn-confirm" onclick="confirmAdd()">Add to zone</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- SCANNER -->
+  <div class="scanner-wrap" id="scannerWrap">
+    <div class="scanner-bar">
+      <span class="scanner-close" onclick="closeScanner()">&#10005; Close</span>
+      <span class="scanner-status" id="scanStatus">Point camera at label or barcode</span>
+    </div>
+    <video id="scanner-video" autoplay muted playsinline></video>
+    <canvas id="scanner-canvas" style="display:none"></canvas>
+    <div class="scanner-overlay">
+      <div class="scan-frame"></div>
+      <div class="scan-hint">Hold steady — trying text recognition then barcode</div>
+    </div>
+    <div class="scan-result-sheet" id="scanResultSheet">
+      <h3>Scanned plant name</h3>
+      <input id="scanResultInput" placeholder="Edit if needed..."/>
+      <div class="scan-result-btns">
+        <button style="border:0.5px solid var(--border);background:var(--bg2);color:var(--text)" onclick="closeScanResult()">Rescan</button>
+        <button style="border:none;background:var(--green);color:#fff;font-weight:500" onclick="useScanResult()">Use this name</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const CATS={
+  Annuals:['Petunia','Marigold','Impatiens','Begonia','Geranium','Zinnia','Vinca','Coleus','Lantana','Snapdragon'],
+  Perennials:['Coneflower','Daylily','Hosta','Black-eyed Susan','Salvia','Lavender','Sedum','Astilbe','Coreopsis','Russian Sage'],
+  'Shrubs/Hedges':['Boxwood','Knockout Rose','Burning Bush','Spirea','Hydrangea','Viburnum','Arborvitae','Holly','Forsythia','Barberry'],
+  Trees:['Red Maple','Emerald Arborvitae','Weeping Cherry','Crabapple','Redbud','Cleveland Pear','Blue Spruce','River Birch','Magnolia','Serviceberry'],
+  'Vegetables/Herbs':['Tomato','Pepper','Cucumber','Zucchini','Basil','Mint','Rosemary','Parsley','Cilantro','Jalapeño'],
+  Houseplants:['Pothos','Snake Plant','Peace Lily','ZZ Plant','Philodendron','Fern','Dracaena','Spider Plant','Rubber Tree','Chinese Evergreen'],
+  'Succulents/Cacti':['Aloe Vera','Echeveria','Jade Plant','Cactus Mix','Haworthia','Agave','Sedum Mix','Kalanchoe','Prickly Pear','Burro\'s Tail'],
+  Roses:['Knockout Rose','Drift Rose','Climbing Rose','Hybrid Tea Rose','Floribunda Rose','Miniature Rose'],
+  'Hanging Baskets':['Fuchsia Basket','Wave Petunia Basket','Ivy Geranium Basket','Bacopa Basket','Calibrachoa Basket','Mixed Annual Basket']
+};
+const CAT_COLORS={Annuals:'#BA7517',Perennials:'#534AB7','Shrubs/Hedges':'#0F6E56',Trees:'#27500A','Vegetables/Herbs':'#1D9E75',Houseplants:'#185FA5','Succulents/Cacti':'#854F0B',Roses:'#993556','Hanging Baskets':'#D85A30'};
+const ZONES=[
+  {id:'corral',label:'Corral',sub:'Separate outdoor lot · open air',color:'#3B6D11',bg:'#EAF3DE',
+   positions:['Front','Middle','Back','Left side','Right side','North side','South side'],
+   rows:['Row 1','Row 2','Row 3','Row 4','Ground level']},
+  {id:'apron',label:'Front apron',sub:'Faces parking lot · high visibility',color:'#854F0B',bg:'#FAEEDA',
+   positions:['Left end','Center','Right end','Near entrance','Near road'],
+   rows:['Row 1','Row 2','Hanging rack']},
+  {id:'nursery',label:'Nursery (outdoor)',sub:'Garden Center corridor · bench tables',color:'#085041',bg:'#E1F5EE',
+   positions:['Front','Middle','Back','Left side','Right side','Center aisle'],
+   rows:['Bench row 1','Bench row 2','Bench row 3','Bench row 4','Ground level']},
+  {id:'inside',label:'Inside nursery',sub:'Near Service Desk · climate controlled',color:'#0C447C',bg:'#E6F1FB',
+   positions:['Near entrance','Back wall','Left shelf','Right shelf','Center display','Near checkout'],
+   rows:['Top shelf','Middle shelf','Bottom shelf','Floor display']}
+];
+
+let placements={corral:[],apron:[],nursery:[],inside:[]};
+let activePos={corral:null,apron:null,nursery:null,inside:null};
+let activeRow={corral:null,apron:null,nursery:null,inside:null};
+let customNotes={corral:'',apron:'',nursery:'',inside:''};
+let customCats={};
+let activeCat='Annuals';
+let currentZone=null;
+let pendingPlant=null;
+let pendingCat=null;
+let scanStream=null;
+let barcodeReader=null;
+let scanInterval=null;
+
+function goTo(id){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+function switchTab(tab){
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('nav-'+tab).classList.add('active');
+  if(tab==='zones'){
+    renderZoneList();
+    goTo('s-zones');
+  } else {
+    renderMapStats();
+    goTo('s-map');
+  }
+}
+
+function catColor(c){return CAT_COLORS[c]||'#888780';}
+
+function buildLoc(zid){
+  const p=[];
+  if(activePos[zid])p.push(activePos[zid]);
+  if(activeRow[zid])p.push(activeRow[zid]);
+  const n=document.getElementById('d-note')?document.getElementById('d-note').value.trim():customNotes[zid];
+  if(n)p.push(n);
+  return p.join(' · ');
+}
+
+function renderZoneList(){
+  const total=Object.values(placements).reduce((a,b)=>a+b.length,0);
+  const zonesUsed=Object.values(placements).filter(a=>a.length>0).length;
+  document.getElementById('totalSummary').textContent=total===0?'No plants placed yet — tap a zone to start':`${total} plant${total!==1?'s':''} across ${zonesUsed} zone${zonesUsed!==1?'s':''}`;
+  document.getElementById('zoneList').innerHTML=ZONES.map(z=>{
+    const cnt=placements[z.id].length;
+    return `<div class="zone-row" onclick="openZone('${z.id}')">
+      <span class="zone-dot" style="background:${z.color}"></span>
+      <div class="zone-info">
+        <div class="zone-row-title" style="color:${z.color}">${z.label}</div>
+        <div class="zone-row-sub">${z.sub}</div>
+      </div>
+      <span class="zone-count">${cnt} plant${cnt!==1?'s':''}</span>
+      <svg class="chevron-svg" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+    </div>`;
+  }).join('');
+}
+
+function openZone(zid){
+  currentZone=zid;
+  const z=ZONES.find(z=>z.id===zid);
+  document.getElementById('d-title').textContent=z.label;
+  document.getElementById('d-header').innerHTML=`<div style="font-size:15px;font-weight:600;color:${z.color}">${z.label}</div><div style="font-size:12px;color:var(--text2);margin-top:2px">${z.sub}</div>`;
+  renderDetail();
+  goTo('s-detail');
+}
+
+function renderDetail(){
+  const zid=currentZone;
+  const z=ZONES.find(z=>z.id===zid);
+  document.getElementById('d-pos').innerHTML=z.positions.map(p=>
+    `<span class="chip${activePos[zid]===p?' active':''}" onclick="togglePos('${zid}','${p}')">${p}</span>`
+  ).join('');
+  document.getElementById('d-row').innerHTML=z.rows.map(r=>
+    `<span class="chip${activeRow[zid]===r?' active':''}" onclick="toggleRow('${zid}','${r}')">${r}</span>`
+  ).join('');
+  const note=document.getElementById('d-note');
+  if(note)note.value=customNotes[zid]||'';
+  const items=placements[zid];
+  const pl=document.getElementById('d-plants');
+  if(items.length===0){
+    pl.innerHTML=`<p class="empty-msg">No plants placed yet</p>`;
+  } else {
+    pl.innerHTML=`<div class="placed-card">${items.map((item,i)=>
+      `<div class="placed-item">
+        <span class="p-dot" style="background:${catColor(item.cat)}"></span>
+        <div class="p-info">
+          <div class="p-name">${item.plant}</div>
+          ${item.loc?`<div class="p-loc">${item.loc}</div>`:''}
+        </div>
+        <span class="p-rm" onclick="removePlant('${zid}',${i})">&#215;</span>
+      </div>`
+    ).join('')}</div>`;
+  }
+}
+
+function togglePos(zid,p){
+  saveNote();
+  activePos[zid]=activePos[zid]===p?null:p;
+  renderDetail();
+}
+function toggleRow(zid,r){
+  saveNote();
+  activeRow[zid]=activeRow[zid]===r?null:r;
+  renderDetail();
+}
+function saveNote(){
+  const n=document.getElementById('d-note');
+  if(n&&currentZone)customNotes[currentZone]=n.value;
+}
+function removePlant(zid,idx){
+  placements[zid].splice(idx,1);
+  renderDetail();
+  renderZoneList();
+}
+
+function goPickPlant(){
+  saveNote();
+  renderPicker();
+  goTo('s-picker');
+}
+
+function renderPicker(){
+  document.getElementById('catScroll').innerHTML=Object.keys(CATS).map(c=>
+    `<span class="cat-chip${c===activeCat?' active':''}" onclick="setCat('${c}')">${c}</span>`
+  ).join('');
+  renderPlantGrid();
+}
+function setCat(c){activeCat=c;renderPicker();}
+function renderPlantGrid(){
+  const plants=[...(CATS[activeCat]||[]),...(customCats[activeCat]||[])];
+  document.getElementById('plantGrid').innerHTML=plants.map(p=>
+    `<div class="plant-item" onclick="pickPlant('${p.replace(/'/g,"\\'")}','${activeCat}')">
+      <span class="pl-dot" style="background:${catColor(activeCat)}"></span>
+      <span class="pl-name">${p}</span>
+      <svg class="pl-add" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+    </div>`
+  ).join('');
+}
+function addCustom(){
+  const inp=document.getElementById('customInput');
+  const val=inp.value.trim();
+  if(!val)return;
+  if(!customCats[activeCat])customCats[activeCat]=[];
+  customCats[activeCat].push(val);
+  inp.value='';
+  renderPlantGrid();
+}
+
+function pickPlant(plant,cat){
+  pendingPlant=plant;pendingCat=cat;
+  const z=ZONES.find(z=>z.id===currentZone);
+  const loc=buildLoc(currentZone);
+  document.getElementById('c-title').textContent='Add '+plant+'?';
+  document.getElementById('c-body').textContent='Zone: '+z.label+(loc?' · '+loc:'');
+  document.getElementById('confirmSheet').classList.add('show');
+}
+function closeSheet(id){document.getElementById(id).classList.remove('show');}
+function confirmAdd(){
+  if(!pendingPlant||!currentZone)return;
+  const loc=buildLoc(currentZone);
+  placements[currentZone].push({plant:pendingPlant,cat:pendingCat,loc});
+  closeSheet('confirmSheet');
+  renderDetail();
+  renderZoneList();
+  goTo('s-detail');
+  pendingPlant=null;pendingCat=null;
+}
+
+function renderMapStats(){
+  document.getElementById('mapStats').innerHTML=ZONES.map(z=>{
+    const cnt=placements[z.id].length;
+    const cats=[...new Set(placements[z.id].map(p=>p.cat))];
+    return `<div class="stat-card">
+      <div class="stat-label" style="color:${z.color}">${z.label}</div>
+      <div class="stat-val">${cnt}</div>
+      <div class="stat-sub">${cnt===0?'Empty':cats.slice(0,2).join(', ')+(cats.length>2?' +more':'')}</div>
+    </div>`;
+  }).join('');
+}
+
+/* ── SCANNER ── */
+function openScanner(){
+  saveNote();
+  document.getElementById('scannerWrap').classList.add('show');
+  document.getElementById('scanStatus').textContent='Starting camera...';
+  closeScanResult();
+  startCamera();
+}
+function closeScanner(){
+  stopCamera();
+  document.getElementById('scannerWrap').classList.remove('show');
+}
+function closeScanResult(){
+  document.getElementById('scanResultSheet').classList.remove('show');
+}
+
+async function startCamera(){
+  try{
+    scanStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment',width:{ideal:1280},height:{ideal:720}}});
+    const vid=document.getElementById('scanner-video');
+    vid.srcObject=scanStream;
+    await vid.play();
+    document.getElementById('scanStatus').textContent='Scanning...';
+    startScanLoop();
+  }catch(e){
+    document.getElementById('scanStatus').textContent='Camera access denied';
+  }
+}
+
+function stopCamera(){
+  if(scanStream){scanStream.getTracks().forEach(t=>t.stop());scanStream=null;}
+  clearInterval(scanInterval);
+  if(barcodeReader){try{barcodeReader.reset();}catch(e){}}
+}
+
+function startScanLoop(){
+  let attempts=0;
+  // Try barcode first with ZXing
+  try{
+    if(window.ZXing){
+      barcodeReader=new ZXing.BrowserMultiFormatReader();
+      const vid=document.getElementById('scanner-video');
+      barcodeReader.decodeFromVideoElement(vid,(result,err)=>{
+        if(result){
+          const txt=result.getText();
+          document.getElementById('scanStatus').textContent='Barcode detected!';
+          showScanResult(txt);
+          barcodeReader.reset();
+        }
+      });
+    }
+  }catch(e){}
+
+  // Simultaneously try OCR via canvas sampling
+  scanInterval=setInterval(()=>{
+    attempts++;
+    if(attempts>60)clearInterval(scanInterval);
+    tryOCR();
+  },2000);
+}
+
+function tryOCR(){
+  const vid=document.getElementById('scanner-video');
+  const canvas=document.getElementById('scanner-canvas');
+  if(!vid.videoWidth)return;
+  canvas.width=vid.videoWidth;
+  canvas.height=vid.videoHeight;
+  const ctx=canvas.getContext('2d');
+  ctx.drawImage(vid,0,0);
+  // Crop center region matching scan frame
+  const cx=vid.videoWidth/2;const cy=vid.videoHeight/2;
+  const fw=Math.min(vid.videoWidth*0.6,520);const fh=Math.min(vid.videoHeight*0.4,280);
+  const imgData=ctx.getImageData(cx-fw/2,cy-fh/2,fw,fh);
+  const small=document.createElement('canvas');
+  small.width=fw;small.height=fh;
+  small.getContext('2d').putImageData(imgData,0,0);
+
+  // Use Tesseract if available, else skip
+  if(window.Tesseract){
+    Tesseract.recognize(small,'eng',{logger:()=>{}}).then(({data:{text}})=>{
+      const cleaned=cleanOCRText(text);
+      if(cleaned){
+        clearInterval(scanInterval);
+        document.getElementById('scanStatus').textContent='Text detected!';
+        showScanResult(cleaned);
+      }
+    }).catch(()=>{});
+  }
+}
+
+function cleanOCRText(raw){
+  const lines=raw.split('\n').map(l=>l.trim()).filter(l=>l.length>3&&l.length<60);
+  // Look for plant-like words
+  const plantWords=['plant','rose','lily','fern','grass','tree','shrub','basil','mint','tomato','pepper','petunia','marigold','hosta','sedum','cactus','aloe','succulent','hydrangea'];
+  for(const line of lines){
+    const lower=line.toLowerCase();
+    if(plantWords.some(w=>lower.includes(w)))return line;
+  }
+  // Return longest reasonable line
+  return lines.sort((a,b)=>b.length-a.length)[0]||'';
+}
+
+function showScanResult(text){
+  if(document.getElementById('scanResultSheet').classList.contains('show'))return;
+  document.getElementById('scanResultInput').value=text;
+  document.getElementById('scanResultSheet').classList.add('show');
+}
+
+function useScanResult(){
+  const val=document.getElementById('scanResultInput').value.trim();
+  if(!val)return;
+  pendingPlant=val;pendingCat='Custom scan';
+  const z=ZONES.find(z=>z.id===currentZone);
+  const loc=buildLoc(currentZone);
+  document.getElementById('c-title').textContent='Add '+val+'?';
+  document.getElementById('c-body').textContent='Zone: '+z.label+(loc?' · '+loc:'')+(loc?'':'\nNo sub-location selected');
+  closeScanner();
+  document.getElementById('scannerWrap').classList.remove('show');
+  document.getElementById('confirmSheet').classList.add('show');
+}
+
+// Init
+renderZoneList();
+renderMapStats();
+</script>
+</body>
+</html>
