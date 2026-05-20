@@ -138,6 +138,18 @@ html,body{height:100%;background:var(--bg2);font-family:-apple-system,BlinkMacSy
 .loading-overlay p{font-size:14px;color:var(--text2)}
 .spinner{width:32px;height:32px;border:3px solid var(--border);border-top-color:var(--green);border-radius:50%;animation:spin .8s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
+.search-result-card{margin:8px 16px 0;border:0.5px solid var(--border);border-radius:var(--radius);overflow:hidden;background:var(--bg)}
+.search-result-item{display:flex;align-items:center;padding:13px 14px;gap:12px;border-bottom:0.5px solid var(--border2)}
+.search-result-item:last-child{border-bottom:none}
+.sr-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.sr-info{flex:1;min-width:0}
+.sr-name{font-size:14px;font-weight:500;color:var(--text)}
+.sr-zone{font-size:12px;color:var(--text2);margin-top:2px}
+.sr-loc{font-size:11px;color:var(--text3);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sr-by{font-size:10px;color:var(--text3);margin-top:1px}
+.sr-zone-badge{display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:600;margin-bottom:6px}
+.no-results{text-align:center;padding:32px 16px;color:var(--text3);font-size:14px}
+.search-section-label{font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;padding:14px 16px 4px}
 </style>
 </head>
 <body>
@@ -299,11 +311,32 @@ html,body{height:100%;background:var(--bg2);font-family:-apple-system,BlinkMacSy
     </div>
   </div>
 
+  <!-- SCREEN: Search -->
+  <div class="screen" id="s-search">
+    <div class="topbar">
+      <svg viewBox="0 0 24 24" style="width:20px;height:20px;stroke:var(--text3);fill:none;stroke-width:1.7;stroke-linecap:round;flex-shrink:0"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <input id="searchInput" placeholder="Search for a plant..." autocomplete="off" autocorrect="off" spellcheck="false"
+        style="flex:1;border:none;background:transparent;font-size:16px;color:var(--text);outline:none;padding:0 4px"
+        oninput="doSearch(this.value)"/>
+      <span id="searchClear" style="font-size:20px;color:var(--text3);cursor:pointer;display:none;padding:0 4px" onclick="clearSearch()">&#215;</span>
+    </div>
+    <div class="scrollable" id="searchResults">
+      <div style="text-align:center;padding:40px 16px;color:var(--text3);font-size:14px">
+        <svg viewBox="0 0 24 24" style="width:40px;height:40px;stroke:var(--text3);fill:none;stroke-width:1.2;stroke-linecap:round;margin-bottom:12px;display:block;margin-left:auto;margin-right:auto"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        Type a plant name to find its location
+      </div>
+    </div>
+  </div>
+
   <!-- NAV -->
   <div class="nav">
     <button class="nav-btn active" id="nav-zones" onclick="switchTab('zones')">
       <svg viewBox="0 0 24 24"><rect x="3" y="3" width="8" height="8" rx="1"/><rect x="13" y="3" width="8" height="8" rx="1"/><rect x="3" y="13" width="8" height="8" rx="1"/><rect x="13" y="13" width="8" height="8" rx="1"/></svg>
       Zones
+    </button>
+    <button class="nav-btn" id="nav-search" onclick="switchTab('search')">
+      <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      Search
     </button>
     <button class="nav-btn" id="nav-map" onclick="switchTab('map')">
       <svg viewBox="0 0 24 24"><polygon points="3,6 9,3 15,6 21,3 21,18 15,21 9,18 3,21"/><line x1="9" y1="3" x2="9" y2="18"/><line x1="15" y1="6" x2="15" y2="21"/></svg>
@@ -731,6 +764,114 @@ window.useScanResult=function(){
   closeScanner();
   document.getElementById('confirmSheet').classList.add('show');
 };
+
+
+// SEARCH
+window.switchTab = function(tab){
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('nav-'+tab).classList.add('active');
+  if(tab==='zones'){renderZoneList();goTo('s-zones');}
+  else if(tab==='search'){goTo('s-search');setTimeout(()=>document.getElementById('searchInput').focus(),100);}
+  else{renderMapStats();goTo('s-map');}
+};
+
+window.doSearch = function(query){
+  const q = query.trim().toLowerCase();
+  const clear = document.getElementById('searchClear');
+  clear.style.display = q ? 'block' : 'none';
+  const resultsEl = document.getElementById('searchResults');
+
+  if(!q){
+    resultsEl.innerHTML = `<div style="text-align:center;padding:40px 16px;color:var(--text3);font-size:14px">
+      <svg viewBox="0 0 24 24" style="width:40px;height:40px;stroke:var(--text3);fill:none;stroke-width:1.2;stroke-linecap:round;margin-bottom:12px;display:block;margin-left:auto;margin-right:auto"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      Type a plant name to find its location</div>`;
+    return;
+  }
+
+  // Search across all zones
+  const matches = [];
+  ZONES.forEach(z => {
+    placements[z.id].forEach(item => {
+      if(item.plant.toLowerCase().includes(q) || (item.cat||'').toLowerCase().includes(q)){
+        matches.push({...item, zoneObj:z});
+      }
+    });
+  });
+
+  // Also search preset list for suggestions
+  const suggestions = [];
+  Object.entries(CATS).forEach(([cat, plants]) => {
+    plants.forEach(p => {
+      if(p.toLowerCase().includes(q) && !matches.find(m=>m.plant===p)){
+        suggestions.push({plant:p, cat});
+      }
+    });
+  });
+
+  if(matches.length === 0 && suggestions.length === 0){
+    resultsEl.innerHTML = `<div class="no-results">
+      <svg viewBox="0 0 24 24" style="width:36px;height:36px;stroke:var(--text3);fill:none;stroke-width:1.2;stroke-linecap:round;margin-bottom:10px;display:block;margin-left:auto;margin-right:auto"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      No results for "<strong style="font-weight:500;color:var(--text)">${query}</strong>"<br>
+      <span style="font-size:12px;margin-top:6px;display:block">Not placed in any zone yet</span>
+    </div>`;
+    return;
+  }
+
+  let html = '';
+
+  if(matches.length > 0){
+    html += `<div class="search-section-label">Found in store (${matches.length})</div>`;
+    html += `<div class="search-result-card">`;
+    matches.forEach(item => {
+      const z = item.zoneObj;
+      html += `<div class="search-result-item" onclick="openZone('${z.id}');switchTab('zones')">
+        <span class="sr-dot" style="background:${catColor(item.cat)}"></span>
+        <div class="sr-info">
+          <div class="sr-name">${highlightMatch(item.plant, q)}</div>
+          <div class="sr-zone">
+            <span class="sr-zone-badge" style="background:${z.color}18;color:${z.color}">${z.label}</span>
+          </div>
+          ${item.loc ? `<div class="sr-loc">${item.loc}</div>` : ''}
+          <div class="sr-by">Added by ${item.addedBy||'unknown'}</div>
+        </div>
+        <svg style="width:14px;height:14px;stroke:var(--text3);fill:none;stroke-width:2;flex-shrink:0" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+      </div>`;
+    });
+    html += `</div>`;
+  }
+
+  if(suggestions.length > 0){
+    html += `<div class="search-section-label">Not placed yet — matches from library</div>`;
+    html += `<div class="search-result-card">`;
+    suggestions.slice(0,8).forEach(item => {
+      html += `<div class="search-result-item" style="opacity:.7">
+        <span class="sr-dot" style="background:${catColor(item.cat)}"></span>
+        <div class="sr-info">
+          <div class="sr-name">${highlightMatch(item.plant, q)}</div>
+          <div class="sr-zone" style="font-size:11px;color:var(--text3)">${item.cat} · Not currently placed</div>
+        </div>
+      </div>`;
+    });
+    html += `</div>`;
+  }
+
+  html += `<div class="safe-bottom"></div>`;
+  resultsEl.innerHTML = html;
+};
+
+window.clearSearch = function(){
+  document.getElementById('searchInput').value = '';
+  document.getElementById('searchClear').style.display = 'none';
+  doSearch('');
+};
+
+function highlightMatch(text, query){
+  const idx = text.toLowerCase().indexOf(query.toLowerCase());
+  if(idx === -1) return text;
+  return text.slice(0,idx) +
+    `<mark style="background:var(--amber-bg);color:var(--amber);border-radius:2px;padding:0 1px">${text.slice(idx,idx+query.length)}</mark>` +
+    text.slice(idx+query.length);
+}
 
 </script>
 </body>
